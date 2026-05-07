@@ -1,0 +1,50 @@
+import ccxt
+import time
+import requests
+
+# --- CONFIGURATION ---
+SYMBOL = 'BTC/USDT:USDT'
+TIMEFRAME = '4h'
+# Add your credentials here or use Environment Variables
+API_KEY = 'YOUR_DELTA_API_KEY'
+API_SECRET = 'YOUR_DELTA_API_SECRET'
+TELEGRAM_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+TELEGRAM_CHAT_ID = 'YOUR_CHAT_ID'
+
+exchange = ccxt.delta({
+    'apiKey': API_KEY,
+    'secret': API_SECRET,
+})
+
+def send_telegram_msg(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={TELEGRAM_CHAT_ID}&text={message}"
+    requests.get(url)
+
+def moving_average(data, period):
+    return sum(data) / period
+
+def run_bot():
+    print("Bot started... monitoring 4H candles.")
+    while True:
+        try:
+            ohlcv = exchange.fetch_ohlcv(SYMBOL, timeframe=TIMEFRAME, limit=100)
+            closes = [x[4] for x in ohlcv]
+            
+            # Calculate 20 and 50 EMA
+            ema20 = moving_average(closes[-20:], 20)
+            ema50 = moving_average(closes[-50:], 50)
+            
+            # Check for Bullish Cross
+            if ema20 > ema50:
+                msg = f"🚀 BULLISH SIGNAL: 20 EMA crossed above 50 EMA on {SYMBOL} {TIMEFRAME}!"
+                print(msg)
+                send_telegram_msg(msg)
+            
+            # Wait 1 hour before checking again to save resources
+            time.sleep(3600) 
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(60)
+
+if __name__ == "__main__":
+    run_bot()
